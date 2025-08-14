@@ -1,0 +1,4 @@
+// 이 파일로 babel을 설정할 수 있음
+{
+    "presets":["@babel/preset-env"]
+}
