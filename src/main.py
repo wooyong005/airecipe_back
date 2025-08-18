@@ -7,6 +7,8 @@ from user.router import router as user_router
 from ai.ai_model import model  # 위에서 만든 모듈에서 모델 임포트
 
 
+
+
 app = FastAPI()
 
 app.add_middleware(

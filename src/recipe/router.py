@@ -1,3 +1,5 @@
+#  recipe/router.py
+
 # 기존 # route/recipe.py 의 내용 대부분.
 
 from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File
@@ -25,6 +27,9 @@ import os
 from collections import Counter
 from ai.ai_model import model
 from typing import List
+
+from chatbot.chatbot import ask_chatbot # 정용우 추가
+from pydantic import BaseModel # 정용우 추가 # 요청 바디(JSON)**를 자동으로 파이썬 객체로 변환 # 클라이언트가 "레시피 알려줘"> request.message 로 사용
 
 router = APIRouter()
 
@@ -442,3 +447,22 @@ def get_recipes(category: str = Query(None), search: str = Query(None), page: in
         } for r in recipes],
         "total_count": total_count
     }
+
+
+#   정용우 시작
+
+class ChatRequest(BaseModel):
+    message: str
+
+@router.post("/chatbot")
+def chatbot_answer(request: ChatRequest):
+    """
+    메인화면 챗봇 질문 처리 API
+    """
+    try:
+        answer = ask_chatbot(request.message)
+        return {"answer": answer}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    # 정용우 끝
