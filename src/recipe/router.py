@@ -30,6 +30,14 @@ from typing import List
 
 from chatbot.chatbot import ask_chatbot # 정용우 추가
 from pydantic import BaseModel # 정용우 추가 # 요청 바디(JSON)**를 자동으로 파이썬 객체로 변환 # 클라이언트가 "레시피 알려줘"> request.message 로 사용
+from fastapi.responses import StreamingResponse # 스트리밍 서비스 # 정용우 추가
+#from chatbot import model # 정용우 추가 이거 뭔가 안돼서 아래 3줄추가.
+import google.generativeai as genai # 정용우
+
+genai.configure(api_key="AIzaSyCf0Tkt0GEnQ6XWOi1G6TbnVs4Pz-0slJg")   # 정용우
+model = genai.GenerativeModel("gemini-1.5-flash") #정용우
+
+
 
 router = APIRouter()
 
@@ -146,7 +154,7 @@ async def recipe_detail(id: int = Query(...), user_id: str = Query(None),lang: s
             "INFO_PRO": recipe.INFO_PRO,
             "INFO_FAT": recipe.INFO_FAT,
             "INFO_NA": recipe.INFO_NA,
-            "RCP_NA_TIP": tip, # 번역된 팁 # 라인 139~141 # 정용우 수정
+            "RCP_NA_TIP": tip, # 번역된 팁  # 정용우 수정
             "avg_rating": float(recipe.avg_rating or 0),
             "rating_count": recipe.rating_count or 0,
             "view_count": recipe.view_count or 0,
@@ -449,7 +457,7 @@ def get_recipes(category: str = Query(None), search: str = Query(None), page: in
     }
 
 
-#   정용우 시작
+#   정용우 시작 # 챗봇
 
 class ChatRequest(BaseModel):
     message: str
@@ -466,3 +474,47 @@ def chatbot_answer(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
     
     # 정용우 끝
+
+
+# 정용우 시작 # 챗봇 스트리밍
+@router.get("/chatbot/stream")
+def chatbot_answer_stream(message: str):
+    """
+    스트리밍(SSE) 버전
+    프론트: EventSource(`/chatbot/stream?message=...`)
+    """
+    # 스트리밍용 프롬프트 (톤만 살짝 다르게)
+    prompt = (
+        f"'{message}'에 대해 요리 전문가처럼 친절하고 단계적으로 답해줘. "
+        "목록과 짧은 문장 위주로 설명하고, 자연스럽게 이어서 풀어줘."
+    )
+
+    def sse_event_generator():
+        try:
+            # ✅ 전역 model 재사용 + 스트리밍 모드
+            stream = model.generate_content(prompt, stream=True)
+            for chunk in stream:
+                text = getattr(chunk, "text", None)
+                if not text:
+                    continue
+                # 개행 정리 후 즉시 전송
+                yield f"data: {text.replace('/r', '')}/n/n"
+        except Exception as e:
+            # 에러 이벤트도 SSE로 전송
+            yield f"event: error/ndata: {str(e)}/n/n"
+        finally:
+            # 스트림 종료 신호
+            yield "event: done/ndata: [DONE]/n/n"
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",  # Nginx 쓰면 버퍼링 끄기
+        "Connection": "keep-alive",
+        "Content-Type": "text/event-stream; charset=utf-8",
+    }
+    return StreamingResponse(sse_event_generator(), headers=headers, media_type="text/event-stream")
+
+# 정용우 끝
+
+    
+    

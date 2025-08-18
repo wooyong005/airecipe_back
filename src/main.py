@@ -3,10 +3,11 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from recipe.router import router as recipe_router
 from user.router import router as user_router
+from user.router import router as chatbot_router
 
 from ai.ai_model import model  # 위에서 만든 모듈에서 모델 임포트
 
-
+from recipe.router import router as chatbot_router
 
 
 app = FastAPI()
@@ -28,3 +29,4 @@ def get_model():
 # 라우터 등록 시 prefix 유지
 app.include_router(recipe_router, prefix="/api")
 app.include_router(user_router, prefix="/api/users")
+app.include_router(chatbot_router) # 정용우 추가
