@@ -34,8 +34,9 @@ from fastapi.responses import StreamingResponse # 스트리밍 서비스 # 정�
 #from chatbot import model # 정용우 추가 이거 뭔가 안돼서 아래 3줄추가.
 import google.generativeai as genai # 정용우
 
-genai.configure(api_key="AIzaSyCf0Tkt0GEnQ6XWOi1G6TbnVs4Pz-0slJg")   # 정용우
-model = genai.GenerativeModel("gemini-1.5-flash") #정용우
+genai.configure(api_key="AIzaSyDnMIpa9qzRUdMvX5FvH4v13JOhWfjzkIs") # 정용우
+gemini_model = genai.GenerativeModel("gemini-1.5-flash") # 정용우
+
 
 
 
@@ -457,64 +458,46 @@ def get_recipes(category: str = Query(None), search: str = Query(None), page: in
     }
 
 
-#   정용우 시작 # 챗봇
+
+
+
+# 정용우 시작
+
+
 
 class ChatRequest(BaseModel):
     message: str
 
+# ✅ 완성형: ask_chatbot 사용
 @router.post("/chatbot")
 def chatbot_answer(request: ChatRequest):
-    """
-    메인화면 챗봇 질문 처리 API
-    """
     try:
         answer = ask_chatbot(request.message)
         return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-    # 정용우 끝
 
-
-# 정용우 시작 # 챗봇 스트리밍
-@router.get("/chatbot/stream")
-def chatbot_answer_stream(message: str):
-    """
-    스트리밍(SSE) 버전
-    프론트: EventSource(`/chatbot/stream?message=...`)
-    """
-    # 스트리밍용 프롬프트 (톤만 살짝 다르게)
+# ✅ 스트리밍: text/plain 스트림
+@router.post("/chatbot/stream")
+def chatbot_stream(request: ChatRequest):
     prompt = (
-        f"'{message}'에 대해 요리 전문가처럼 친절하고 단계적으로 답해줘. "
-        "목록과 짧은 문장 위주로 설명하고, 자연스럽게 이어서 풀어줘."
+        f"'{request.message}'에 대해 요리 전문가처럼 자세하고 친절하게 요리 레시피를 단계별로 설명해줘. "
+        f"칼로리,지방 같은 영양성분과 재료를 먼저 알려줘. "
+        f"그 다음에는 1단계,2단계...단계별로 요리 순서를 알려줘"
     )
-
-    def sse_event_generator():
+    def token_stream():
         try:
-            # ✅ 전역 model 재사용 + 스트리밍 모드
-            stream = model.generate_content(prompt, stream=True)
-            for chunk in stream:
-                text = getattr(chunk, "text", None)
-                if not text:
-                    continue
-                # 개행 정리 후 즉시 전송
-                yield f"data: {text.replace('/r', '')}/n/n"
+            response = gemini_model.generate_content(prompt, stream=True)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
         except Exception as e:
-            # 에러 이벤트도 SSE로 전송
-            yield f"event: error/ndata: {str(e)}/n/n"
-        finally:
-            # 스트림 종료 신호
-            yield "event: done/ndata: [DONE]/n/n"
+            yield f"\n[ERROR] {str(e)}"
 
-    headers = {
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",  # Nginx 쓰면 버퍼링 끄기
-        "Connection": "keep-alive",
-        "Content-Type": "text/event-stream; charset=utf-8",
-    }
-    return StreamingResponse(sse_event_generator(), headers=headers, media_type="text/event-stream")
+    return StreamingResponse(token_stream(), media_type="text/plain; charset=utf-8")
+
+
 
 # 정용우 끝
-
     
     
