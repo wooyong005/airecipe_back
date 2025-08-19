@@ -327,7 +327,7 @@ async def translate_texts(texts: List[str], dest: str = "en") -> List[str]:
     """
     try:
         # ✅ await 꼭 필요!
-        results = await translator.translate(texts, src="ko", dest="en") # 비동기 번역 # 8월18일 수정 texts, dest=dest에서 현재로 # 언어 자동 감지 활성화하였음. # 체감 속도 업
+        results = await translator.translate(texts, src="ko", dest=dest) # 비동기 번역 # 8월18일 수정 texts, dest=dest에서 현재로 # 언어 자동 감지 활성화하였음. # 체감 속도 업
         return [r.text for r in results]
     except Exception as e:
         raise Exception(f"번역 중 오류 발생: {str(e)}")
